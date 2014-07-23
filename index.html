@@ -3,6 +3,7 @@
 <head>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/threejs/r67/three.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.2.19/angular.min.js"></script>
 <link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Dancing%20Script">
 <style>
     body {
@@ -13,14 +14,28 @@
         bottom: 15px;
         right: 25px;
         color: #999999;
+        font-size: large;
         font-family: 'Dancing Script', serif;
+    }
+    #status {
+        position: fixed;
+        bottom: 15px;
+        left: 15px;
+        color: #000000;
+        font-size: x-small;
+        font-family: 'Courier New', serif;
     }
 </style>
 </head>
-<body>
-<div id="name">The Koch Surface</div>
+<body ng-app>
+<div ng-controller="StatusCtrl" id="status">
+    Vertices: {{ numVertices }}<br>
+    Faces: {{ numFaces }}<br>
+    Frames per second: {{ fps }}<br>
+</div>
+<code id="name">The Koch Surface</code>
 <script>
-var camera, material, scene, renderer, clock, numIter, meshes = [];
+var camera, material, scene, renderer, clock, numIter, prev = 0, meshes = [];
 
 function iterTriangle(triangle) {
     var mid0 = new THREE.Vector3();
@@ -135,13 +150,29 @@ function animate() {
 }
 
 function render() {
-    var delta = clock.getElapsedTime();
+    elapsed = clock.getElapsedTime();
+    var numVertices = 0, numFaces = 0;
     for (var i = 0; i < meshes.length; i++) {
-        meshes[i].rotation.x = delta * 0.3;
-        meshes[i].rotation.y = delta * 0.6;
+        meshes[i].rotation.x = elapsed * 0.3;
+        meshes[i].rotation.y = elapsed * 0.6;
+        numVertices += meshes[i].geometry.vertices.length;
+        numFaces += meshes[i].geometry.faces.length;
     }
 
     renderer.render(scene, camera);
+    var scope = angular.element($("#status")).scope();
+    scope.$apply(function() {
+        scope.numVertices = numVertices;
+        scope.numFaces = numFaces;
+        scope.fps = (1 / (elapsed - prev)).toFixed(2);
+        prev = elapsed;
+    })
+}
+
+function StatusCtrl($scope) {
+    $scope.numVertices = 0;
+    $scope.numFaces = 0;
+    $scope.fps = 0;
 }
 
 $(document).ready(function() {
