@@ -33,9 +33,20 @@
     Faces: {{ numFaces }}<br>
     Frames per second: {{ fps }}<br>
 </div>
-<code id="name">The Koch Surface</code>
+<div id="name">The Koch Surface</div>
 <script>
-var camera, material, scene, renderer, clock, numIter, prev = 0, meshes = [];
+var camera, scene, renderer, clock, numIter, faceMat, prev = 0, meshes = [];
+
+function computeNormal(triangle) {
+    var side1 = new THREE.Vector3();
+    side1.subVectors(triangle[1], triangle[0]);
+    var side2 = new THREE.Vector3();
+    side2.subVectors(triangle[2], triangle[0]);
+
+    var normal = new THREE.Vector3();
+    normal.crossVectors(side1, side2);
+    return normal;
+}
 
 function iterTriangle(triangle) {
     var mid0 = new THREE.Vector3();
@@ -53,13 +64,7 @@ function iterTriangle(triangle) {
     center.add(triangle[2]);
     center.divideScalar(3.);
 
-    var side1 = new THREE.Vector3();
-    side1.subVectors(triangle[1], triangle[0]);
-    var side2 = new THREE.Vector3();
-    side2.subVectors(triangle[2], triangle[0]);
-
-    var normal = new THREE.Vector3();
-    normal.crossVectors(side1, side2);
+    var normal = computeNormal(triangle);
     normal.setLength(0.408248 * triangle[0].distanceTo(triangle[1])); // h = sqrt(6) / 3 * L
 
     var top = new THREE.Vector3();
@@ -97,11 +102,27 @@ function init() {
     camera.position.z = 4;
     scene.add(camera);
 
-    material = new THREE.MeshBasicMaterial({
-                        side: THREE.DoubleSide,
-                        vertexColors: THREE.FaceColors
-                    });
+    // Ambient light
+    scene.add(new THREE.AmbientLight(0x404040));
+
+    // Camera point light
+    var light = new THREE.PointLight(0xffffff, 1.5, 100);
+    light.position = camera.position;
+    scene.add(light);
+
+    var materials = [];
+    var material;
+    for (var i = 0; i < 100; i++) {
+        material = new THREE.MeshPhongMaterial({
+                side: THREE.DoubleSide,
+            });
+        material.color.setRGB(Math.random(), Math.random(), Math.random());
+        material.ambient = material.color;
+        material.specular = material.color;
+        materials.push(material);
+    }
     numIter = 0;
+    faceMat = new THREE.MeshFaceMaterial(materials)
     refreshMesh();
     renderer = new THREE.CanvasRenderer({ alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -115,19 +136,19 @@ function refreshMesh() {
     for (i = 0; i < triangles.length / 20000; i++) {
         geometries.push(new THREE.Geometry());
     }
-
     for (i = 0; i < triangles.length; i++) {
         k = i % geometries.length;
         geometries[k].vertices.push(triangles[i][0]);
         geometries[k].vertices.push(triangles[i][1]);
         geometries[k].vertices.push(triangles[i][2]);
-        face_out = new THREE.Face3(
+        geometries[k].faces.push(new THREE.Face3(
             geometries[k].vertices.length - 3,
             geometries[k].vertices.length - 2,
-            geometries[k].vertices.length - 1
-        );
-        face_out.color.setRGB(Math.random(), Math.random(), Math.random());
-        geometries[k].faces.push(face_out);
+            geometries[k].vertices.length - 1,
+            computeNormal(triangles[i]),
+            null,
+            i % faceMat.materials.length
+        ));
     }
 
     for (i = 0; i < meshes.length; i++) {
@@ -138,7 +159,7 @@ function refreshMesh() {
     for (i = 0; i < geometries.length; i++) {
         // We have to build several meshes because the
         // vertex buffer size is assumed to be ~65K
-        mesh = new THREE.Mesh(geometries[i], material);
+        mesh = new THREE.Mesh(geometries[i], faceMat);
         meshes.push(mesh);
         scene.add(mesh);
     }
@@ -181,7 +202,7 @@ $(document).ready(function() {
     setInterval(function() {
         numIter = (numIter + 1) % 6;
         refreshMesh();
-    }, 4000);
+    }, 5000);
 });
 </script>
 </body>
